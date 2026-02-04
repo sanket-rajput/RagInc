@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PICT Event AI</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; }
+    .loader { width: 20px; height: 20px; border: 2px solid #444; border-top-color: #6366f1; border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body class="bg-gray-900 text-white min-h-screen">
+
+  <div class="max-w-2xl mx-auto p-4 flex flex-col h-screen">
+    
+    <!-- Header -->
+    <div class="text-center py-4 border-b border-gray-700">
+      <h1 class="text-2xl font-bold">PICT Event AI</h1>
+      <p id="status" class="text-sm text-gray-400 mt-1">Connecting...</p>
+    </div>
+    
+    <!-- Chat -->
+    <div id="chat" class="flex-1 overflow-y-auto py-4 space-y-4">
+      <div class="bg-gray-800 p-3 rounded-lg max-w-md">
+        👋 Hi! Ask me about PICT InC 2026 - events, dates, rules, registration, etc.
+      </div>
+    </div>
+    
+    <!-- Input -->
+    <form id="form" class="flex gap-2 py-4 border-t border-gray-700">
+      <input id="input" type="text" placeholder="Ask about PICT events..." 
+        class="flex-1 bg-gray-800 border border-gray-600 rounded-lg px-4 py-2 focus:outline-none focus:border-indigo-500">
+      <button type="submit" class="bg-indigo-600 hover:bg-indigo-700 px-6 py-2 rounded-lg font-medium">Send</button>
+    </form>
+    
+  </div>
+
+  <script>
+    const API = "http://localhost:8000";
+    const chat = document.getElementById("chat");
+    const form = document.getElementById("form");
+    const input = document.getElementById("input");
+    const status = document.getElementById("status");
+    
+    // Check health
+    async function checkHealth() {
+      try {
+        const r = await fetch(API + "/health");
+        const data = await r.json();
+        if (data.status === "ready") {
+          status.textContent = `✅ Ready (${data.docs} docs, ${data.chunks} chunks)`;
+          status.className = "text-sm text-green-400 mt-1";
+        } else {
+          status.textContent = "⏳ Loading model...";
+        }
+      } catch {
+        status.textContent = "❌ Server not running";
+        status.className = "text-sm text-red-400 mt-1";
+      }
+    }
+    
+    checkHealth();
+    setInterval(checkHealth, 5000);
+    
+    // Add message to chat
+    function addMsg(text, isUser) {
+      const div = document.createElement("div");
+      div.className = isUser 
+        ? "bg-indigo-600 p-3 rounded-lg max-w-md ml-auto" 
+        : "bg-gray-800 p-3 rounded-lg max-w-md";
+      div.innerHTML = text;
+      chat.appendChild(div);
+      chat.scrollTop = chat.scrollHeight;
+      return div;
+    }
+    
+    // Send message
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      
+      const q = input.value.trim();
+      if (!q) return;
+      
+      input.value = "";
+      addMsg(q, true);
+      
+      const loader = addMsg('<div class="loader"></div> Thinking...', false);
+      
+      try {
+        const r = await fetch(API + "/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ question: q })
+        });
+        
+        const data = await r.json();
+        loader.innerHTML = data.answer || "No response";
+      } catch {
+        loader.innerHTML = "❌ Error connecting to server";
+      }
+    });
+  </script>
+
+</body>
+</html>
